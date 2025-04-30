@@ -7,8 +7,10 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import os
 
 df = pd.read_csv('retail_data.csv')
+os.makedirs("plots", exist_ok=True)
 
 ## Q1
 print(f"Number of entries in dataset: {len(df)}")
@@ -17,7 +19,7 @@ print(f"Number of unique customers: {num_unique_customers}")
 
 
 ## Q2
-df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'])
+df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate']) # convert to datetime object
 min_date = df['InvoiceDate'].min()
 max_date = df['InvoiceDate'].max()
 print(f"Date range: {min_date} to {max_date}")
@@ -33,40 +35,47 @@ unique_descriptions = df['Description'].unique()
 for desc in unique_descriptions:
     if any(phrase.lower() in desc.lower() for phrase in descriptions_to_remove):
         print(f"{desc} found but should have been removed!")
-     
+ 
+rows_removed = condition.sum()
+print(f"Number of rows removed: {rows_removed}")    
+
+# InvoiceNo and missing CustomerID
+invoice_counts = df.groupby(df['CustomerID'].isna())['InvoiceNo'].nunique()
+print(f"Unique invoices WITH CustomerID: {invoice_counts.get(False, 0)}")
+print(f"Unique invoices WITHOUT CustomerID: {invoice_counts.get(True, 0)}")
+total_invoices = invoice_counts.sum()
+print(f"Percentage of invoices without CustomerID: {invoice_counts.get(True, 0)/total_invoices:.1%}")
         
 ## Q4/Q5
 df['PurchaseDate'] = df['InvoiceDate'].dt.date # date only (w/o time)
-pivot_1 = df.groupby('CustomerID')['PurchaseDate'].nunique().reset_index(name='Purchase_days_total')
+df_temp1 = df.groupby('CustomerID')['PurchaseDate'].nunique().reset_index(name='Purchase_days_total')
 
 df['Purchase_amount_total'] = df['Quantity'] * df['UnitPrice']
-pivot_2 = df.groupby('CustomerID')['Purchase_amount_total'].sum().reset_index(name='Purchase_amount_total')
+df_temp2 = df.groupby('CustomerID')['Purchase_amount_total'].sum().reset_index(name='Purchase_amount_total')
 
-pivot_3 = df.groupby('CustomerID')['Purchase_amount_total'].mean().reset_index(name='Purchase_amount_avg')
+df_temp3 = df.groupby('CustomerID')['Purchase_amount_total'].mean().reset_index(name='Purchase_amount_avg')
 
 reference_date = pd.to_datetime('2012-01-01')
-pivot_4 = df.groupby('CustomerID')['InvoiceDate'].max()  # Get last purchase date per customer
-pivot_4 = (reference_date - pivot_4).dt.days.reset_index(name='Recency')
+df_temp4 = df.groupby('CustomerID')['InvoiceDate'].max()  # Get last purchase date per customer
+df_temp4 = (reference_date - df_temp4).dt.days.reset_index(name='Recency')
 
-pivot_5 = df.groupby('CustomerID')['Country'].first().reset_index()
+df_temp5 = df.groupby('CustomerID')['Country'].first().reset_index()
 
-# merge all pivot tables
-pivot_df = pivot_1.merge(pivot_2, on='CustomerID', how='inner').merge(pivot_3, on='CustomerID', how='inner').merge(pivot_4, on='CustomerID', how='inner').merge(pivot_5, on='CustomerID', how='inner')
+# merge all tables
+df_merged_temp = df_temp1.merge(df_temp2, on='CustomerID', how='outer').merge(df_temp3, on='CustomerID', how='outer').merge(df_temp4, on='CustomerID', how='outer').merge(df_temp5, on='CustomerID', how='outer')
 
-# ensure that pivot tables match in lengths 
-rows_match = len(pivot_1) == len(pivot_2) == len(pivot_3) == len(pivot_4) == len(pivot_5)
+# ensure that tables match in lengths 
+rows_match = len(df_temp1) == len(df_temp2) == len(df_temp3) == len(df_temp4) == len(df_temp5) == len(df_merged_temp)
 print(f"All rows matched: {rows_match}")
 
 
 ## Q6
 df_2012 = pd.read_csv('retail_data_2012.csv')
-merged_df = pivot_df.merge(df_2012, on='CustomerID', how='inner')
+merged_df = df_merged_temp.merge(df_2012, on='CustomerID', how='outer')
 
 # ensure that tables match in length
-rows_match = len(df_2012) == len(pivot_df)
+rows_match = len(df_2012) == len(df_merged_temp) == len(merged_df)
 print(f"All rows matched: {rows_match}")
-
-# print(merged_df.head())
 
 
 ## Q7
@@ -74,8 +83,8 @@ fig, axes = plt.subplots(2, 2, figsize=(15, 12))
 
 # [xmin, xmax, nbins]
 features = {
-    'Purchase_days_total': [0, 50, 50],
-    'Purchase_amount_total': [0, 5000, 100],
+    'Purchase_days_total': [0, 40, 40],
+    'Purchase_amount_total': [0, 5000, 50],
     'Purchase_amount_avg': [0, 100, 50],
     'Recency': [0,150, 50]  
 }
@@ -95,17 +104,22 @@ for i, feature in enumerate(features):
         palette={0: 'blue', 1: 'green'}
         )
     axes[row, col].legend(['No Purchase in 2012', 'Purchased in 2012'])
-
+    axes[row, col].set_yscale('log')
+    
 plt.tight_layout()
-plt.savefig('customer_purchase_analysis.png', dpi=300, bbox_inches='tight')
+plt.savefig('plots/customer_purchase_analysis.png', dpi=300, bbox_inches='tight')
 plt.close()
 
+purchase_counts = merged_df['Future_purchase'].value_counts()
+
+print(f"Customers WITHOUT future purchases: {purchase_counts.get(0, 0)}")
+print(f"Customers WITH future purchases: {purchase_counts.get(1, 0)}")
 
 ## Q10
-num_countries = df['Country'].nunique()
+num_countries = merged_df['Country'].nunique()
 print(f"Number of countries: {num_countries}")
 
-country_counts = df['Country'].value_counts()
+country_counts = merged_df['Country'].value_counts()
 country_percent = (country_counts / country_counts.sum()) * 100
 
 plt.figure(figsize=(12, 6))
@@ -115,7 +129,7 @@ bars = plt.bar(
     color='skyblue', 
     edgecolor='black'
 )
-plt.ylim(bottom=0.0001, top=110)
+plt.ylim(bottom=0.001, top=110)
 plt.yscale('log')
 
 plt.title('Percentage Distribution of Countries', fontsize=16)
@@ -136,7 +150,7 @@ for bar in bars:
     )
 
 plt.tight_layout()
-plt.savefig('countries.png', dpi=300, bbox_inches='tight')
+plt.savefig('plots/countries.png', dpi=300, bbox_inches='tight')
 plt.close()
 
 ## Q11
@@ -174,12 +188,13 @@ for bar in bars:
     )
    
 plt.tight_layout()
-plt.savefig('countries_new.png', dpi=300, bbox_inches='tight')
+plt.savefig('plots/countries_with_other.png', dpi=300, bbox_inches='tight')
 plt.close()
 
 # create new category in dataframe
 small_countries = country_counts[country_percent < 1].index
-df['Country_processed'] = df['Country'].apply(lambda x: 'Other' if x in small_countries else x)
+merged_df['Country_processed'] = merged_df['Country'].apply(lambda x: 'Other' if x in small_countries else x)
+
 
 ## Q12
 # Group by country and calculate purchase probability
@@ -219,7 +234,7 @@ for bar in bars:
     )
 
 plt.tight_layout()
-plt.savefig('purchase_probability.png', dpi=300, bbox_inches='tight')
+plt.savefig('plots/purchase_probability.png', dpi=300, bbox_inches='tight')
 plt.close()
 
 # assign error to purchase probabilities
@@ -261,10 +276,10 @@ plt.ylim(0, 110)
 plt.xticks(rotation=45, ha='right')
 
 plt.tight_layout()
-plt.savefig('purchase_probability_with_error.png', dpi=300, bbox_inches='tight')
+plt.savefig('plots/purchase_probability_with_error.png', dpi=300, bbox_inches='tight')
 plt.close()
 
-## Q14
+## Q13
 # note:To determine whether there is a significant difference in the probability of making a future purchase across different countries, 
 # we can test if the proportion of Future_purchase = 1 differs by country using the chi square test of independence. 
 # This test evaluates whether the distribution of future purchases is independent of country.
@@ -321,7 +336,7 @@ plt.ylim(0, 110)
 plt.xticks(rotation=45, ha='right')
 
 plt.tight_layout()
-plt.savefig('purchase_probability_with_error_other.png', dpi=300, bbox_inches='tight')
+plt.savefig('plots/purchase_probability_with_error_with_other.png', dpi=300, bbox_inches='tight')
 plt.close()
 
 # Create a contingency table: rows = countries, columns = [No Purchase, Purchase]
@@ -329,7 +344,7 @@ contingency_table = pd.crosstab(merged_df['Country_processed'], merged_df['Futur
 
 chi2, p, dof, expected = chi2_contingency(contingency_table)
 
-print("======== Chi Square Test (with Other)========")
+print("======== Chi Square Test (with Other) ========")
 print(f"Chi-square statistic: {chi2:.2f}")
 print(f"Degrees of freedom: {dof}")
 print(f"P-value: {p:.4f}")
