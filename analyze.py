@@ -8,6 +8,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import os
+import numpy as np
 
 df = pd.read_csv('retail_data.csv')
 os.makedirs("plots", exist_ok=True)
@@ -277,6 +278,79 @@ plt.xticks(rotation=45, ha='right')
 
 plt.tight_layout()
 plt.savefig('plots/purchase_probability_with_error.png', dpi=300, bbox_inches='tight')
+plt.close()
+
+# try Wilson Error
+# The Wilson score interval is a robust method for calculating confidence intervals (CIs) for binomial proportions (like purchase probabilities). 
+# It outperforms standard error methods, especially when:
+#   - Sample sizes are small
+#   - Probabilities are near 0% or 100%
+#   - You need accurate coverage (e.g., 95% CI)
+
+def wilson_bounds(p, n, z=1.96):
+
+    if n == 0:
+        return (0, 0)
+    
+    denominator = 1 + z**2/n
+    centre_adj = p + z**2/(2*n)
+    adj_std = np.sqrt((p*(1 - p) + z**2/(4*n))/n)
+    
+    lower = (centre_adj - z*adj_std) / denominator
+    upper = (centre_adj + z*adj_std) / denominator
+    
+    # Enforce bounds before converting to percentage
+    lower = max(0, lower)
+    upper = min(1, upper)
+    
+    return (lower * 100, upper * 100)
+
+# Calculate purchase probability
+country_prob = merged_df.groupby('Country')['Future_purchase'].mean().mul(100).reset_index(name='Purchase_Probability')
+country_count = merged_df.groupby('Country')['Future_purchase'].agg(['mean', 'count'])
+
+# Calculate Wilson bounds
+country_count["Wilson_Bounds"] = country_count.apply(
+    lambda row: wilson_bounds(row['mean'], row['count']), 
+    axis=1
+)
+
+country_count["Lower"] = country_count["Wilson_Bounds"].apply(lambda x: x[0])
+country_count["Upper"] = country_count["Wilson_Bounds"].apply(lambda x: x[1])
+
+country_prob = country_prob.merge(country_count[["Lower", "Upper"]], left_on="Country", right_index=True)
+
+country_prob["Lower_Error"] = country_prob["Purchase_Probability"] - country_prob["Lower"]
+country_prob["Upper_Error"] = country_prob["Upper"] - country_prob["Purchase_Probability"]
+
+country_prob = country_prob.sort_values("Purchase_Probability", ascending=False)
+ordered_countries = country_prob['Country'].tolist()
+
+errors = country_prob[["Lower_Error", "Upper_Error"]].values.T
+
+plt.figure(figsize=(12, 6))
+
+bars = plt.bar(
+    ordered_countries,
+    country_prob['Purchase_Probability'],
+    yerr=errors,
+    error_kw=dict(ecolor='brown', linewidth=1.5, capsize=5),
+    color='skyblue',
+    edgecolor='black',
+    width=0.7
+)
+
+plt.axhline(y=100, color='grey', linestyle='--', linewidth=1.5, alpha=0.7)
+plt.axhline(y=0, color='grey', linestyle='--', linewidth=1.5, alpha=0.7)
+
+plt.title('Probability of Future Purchase by Country (Wilson 95% CI)', fontsize=14, pad=20)
+plt.xlabel('Country', fontsize=12)
+plt.ylabel('Purchase Probability (%)', fontsize=12)
+plt.ylim(-5, 105)
+plt.xticks(rotation=45, ha='right')
+
+plt.tight_layout()
+plt.savefig('plots/purchase_probability_with_wilson_error.png', dpi=300, bbox_inches='tight')
 plt.close()
 
 ## Q13
