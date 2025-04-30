@@ -2,7 +2,9 @@ Assignment: Customer Purchase Data Analysis
 
 Setup  
 -----
+```  
 git clone https://github.com/yiannispar/retail_data.git  
+```  
 
 How to run  
 ----------
