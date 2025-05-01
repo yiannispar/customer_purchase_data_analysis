@@ -87,7 +87,7 @@ features = {
     'Purchase_days_total': [0, 40, 40],
     'Purchase_amount_total': [0, 5000, 50],
     'Purchase_amount_avg': [0, 100, 50],
-    'Recency': [0,150, 50]  
+    'Recency': [0,370, 50]  
 }
 
 for i, feature in enumerate(features):
