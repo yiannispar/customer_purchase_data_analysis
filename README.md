@@ -18,5 +18,6 @@ Required packages:
 - matplotlib  
 - seaborn  
 - numpy  
+- scipy  
 
 Note: All plots are saved in `plots` dir  
