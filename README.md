@@ -3,13 +3,13 @@ Assignment: Customer Purchase Data Analysis
 Setup  
 -----
 ```  
-git clone https://github.com/yiannispar/retail_data.git  
+git clone https://github.com/yiannispar/customer_purchase_data_analysis.git  
 ```  
 
 How to run  
 ----------
 ```  
-cd retail_data  
+cd customer_purchase_data_analysis    
 python3 analyze.py  
 ```  
 
