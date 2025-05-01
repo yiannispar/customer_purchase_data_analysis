@@ -13,4 +13,10 @@ cd retail_data
 python3 analyze.py  
 ```  
 
+Required packages:  
+- pandas
+- matplotlib  
+- seaborn  
+- numpy  
+
 Note: All plots are saved in `plots` dir  
