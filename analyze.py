@@ -67,7 +67,7 @@ df_merged_temp = df_temp1.merge(df_temp2, on='CustomerID', how='outer').merge(df
 
 # ensure that tables match in lengths 
 rows_match = len(df_temp1) == len(df_temp2) == len(df_temp3) == len(df_temp4) == len(df_temp5) == len(df_merged_temp)
-print(f"All rows matched: {rows_match}")
+# print(f"All rows matched: {rows_match}")
 
 
 ## Q6
@@ -76,7 +76,7 @@ merged_df = df_merged_temp.merge(df_2012, on='CustomerID', how='outer')
 
 # ensure that tables match in length
 rows_match = len(df_2012) == len(df_merged_temp) == len(merged_df)
-print(f"All rows matched: {rows_match}")
+# print(f"All rows matched: {rows_match}")
 
 
 ## Q7
@@ -104,7 +104,6 @@ for i, feature in enumerate(features):
         ax=axes[row, col],
         palette={0: 'blue', 1: 'green'}
         )
-    axes[row, col].legend(['No Purchase in 2012', 'Purchased in 2012'])
     axes[row, col].set_yscale('log')
     
 plt.tight_layout()
@@ -115,6 +114,7 @@ purchase_counts = merged_df['Future_purchase'].value_counts()
 
 print(f"Customers WITHOUT future purchases: {purchase_counts.get(0, 0)}")
 print(f"Customers WITH future purchases: {purchase_counts.get(1, 0)}")
+
 
 ## Q10
 num_countries = merged_df['Country'].nunique()
